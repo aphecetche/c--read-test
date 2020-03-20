@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-size_t test1(std::string filename)
+size_t readAll(std::string filename)
 {
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
@@ -25,7 +25,7 @@ size_t test1(std::string filename)
     return nbytes;
 }
 
-size_t test2(std::string filename)
+size_t seekSet(std::string filename)
 {
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
@@ -45,7 +45,7 @@ size_t test2(std::string filename)
     return posInFile;
 }
 
-size_t test3(std::string filename)
+size_t seekCur(std::string filename)
 {
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
@@ -64,46 +64,86 @@ size_t test3(std::string filename)
     return posInFile;
 }
 
-constexpr const char* BIGFILENAME = "bigfile.txt";
+constexpr const char* BIGFILENAME = "dummy-big-file.txt";
+
+void separator()
+{
+    std::cout << "---------------\n";
+}
+
+void createBigFile(const size_t fileInGB = 20)
+{
+    auto start = std::chrono::system_clock::now();
+    std::cout << "Creating bigfile " << BIGFILENAME << " of size " << fileInGB << " GB ..." << std::flush;
+    auto fileSize = fileInGB * 1024 * 1024; // size in bytes;
+    system(fmt::format("dd if=/dev/zero of={} count={} bs=1024 2> /dev/null", BIGFILENAME, fileSize).c_str());
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    std::cout << fmt::format(". Created in {:7.2f} seconds {:7.2f} MB/s\n",
+        elapsed_seconds.count(), fileInGB * 1024 / elapsed_seconds.count());
+}
+
+void readBigFile()
+{
+    // trying to wipe the SSD read cache
+    auto start = std::chrono::system_clock::now();
+    system(fmt::format("dd if={} of=/dev/null bs=1024 2> /dev/null", BIGFILENAME).c_str());
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    std::cout << "-- wipe cache : " << BIGFILENAME << " read in " << elapsed_seconds.count() << " seconds\n";
+}
 
 void wipeCache()
 {
-    // trying to wipe the SSD read cache
-    system(fmt::format("dd if={} of=/dev/null bs=1024", BIGFILENAME).c_str());
+    readBigFile();
 }
 
 void clock(std::string name, std::function<size_t(std::string)> func, std::string filename)
 {
     wipeCache();
+    separator();
+
     for (auto n = 0; n < 1; n++) {
+        std::cout << "Reading " << filename << "(method " << name << ")..." << std::flush;
         auto start = std::chrono::system_clock::now();
         auto nread = func(filename);
+        double mb = nread / (1024 * 1024.0);
         auto end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        std::cout << fmt::format("{:10s} : {:10d} bytes scanned in {:7.2f} seconds\n",
-            name, nread, elapsed_seconds.count());
+        std::cout << fmt::format(": {:10d} bytes scanned in {:7.2f} seconds {:7.2f} MB/s\n",
+            nread, elapsed_seconds.count(), mb / elapsed_seconds.count());
     }
 }
 
 int main(int argc, char** argv)
 {
-    system(fmt::format("dd if=/dev/zero of={} count=10485760 bs=1024", BIGFILENAME).c_str()); // create a big file
-
     std::string filename = argv[1];
-    std::cout << filename << "\n";
 
-    clock("test1 read all", test3, filename);
+    size_t fileInGB = 20;
 
-    std::cout << "---------------\n";
+    if (argc > 2) {
+        fileInGB = atoi(argv[2]);
+    }
 
-    clock("test2 seek_set", test1, filename);
+    struct call {
+        std::string name;
+        std::function<size_t(std::string)> func;
+    };
 
-    std::cout << "---------------\n";
+    std::array<call, 3> calls = {
+        call { "all", readAll },
+        call { "set", seekSet },
+        call { "cur", seekCur }
+    };
 
-    clock("test3 seek_cur", test2, filename);
+    createBigFile(fileInGB);
 
-    std::cout << "---------------\n";
+    std::array<int, 8> order = { 0, 1, 2, 0, 2, 1, 2, 0 };
 
-    clock("test1 read all", test1, filename);
+    for (auto o : order) {
+        const auto& c = calls[o];
+        clock(c.name, c.func, filename);
+    }
+
     return 0;
 }
