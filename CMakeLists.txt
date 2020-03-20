@@ -1,6 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.14)
 project(cpp-read-test LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
-find_package(fmt)
 add_executable(read read.cxx)
-target_link_libraries(read PUBLIC fmt::fmt)

@@ -1,9 +1,11 @@
 #include "RAWDataHeader.h"
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
-#include <fmt/format.h>
+#include <functional>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 size_t readAll(std::string filename)
@@ -11,7 +13,7 @@ size_t readAll(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
+    size_t nbytes{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -30,8 +32,8 @@ size_t seekSet(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
-    uint64_t posInFile { 0 };
+    size_t nbytes{ 0 };
+    uint64_t posInFile{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -50,8 +52,8 @@ size_t seekCur(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
-    uint64_t posInFile { 0 };
+    size_t nbytes{ 0 };
+    uint64_t posInFile{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -76,18 +78,22 @@ void createBigFile(const size_t fileInGB = 20)
     auto start = std::chrono::system_clock::now();
     std::cout << "Creating bigfile " << BIGFILENAME << " of size " << fileInGB << " GB ..." << std::flush;
     auto fileSize = fileInGB * 1024 * 1024; // size in bytes;
-    system(fmt::format("dd if=/dev/zero of={} count={} bs=1024 2> /dev/null", BIGFILENAME, fileSize).c_str());
+    std::stringstream cmd;
+    cmd << "dd if=/dev/zero of=" << BIGFILENAME << " count=" << fileSize << " bs=1024 2> /dev/null";
+    system(cmd.str().c_str());
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end - start;
-    std::cout << fmt::format(". Created in {:7.2f} seconds {:7.2f} MB/s\n",
-        elapsed_seconds.count(), fileInGB * 1024 / elapsed_seconds.count());
+    std::cout << ". Created in " << elapsed_seconds.count() << " seconds "
+              << fileInGB * 1024 / elapsed_seconds.count() << "MB/s\n";
 }
 
 void readBigFile()
 {
     // trying to wipe the SSD read cache
     auto start = std::chrono::system_clock::now();
-    system(fmt::format("dd if={} of=/dev/null bs=1024 2> /dev/null", BIGFILENAME).c_str());
+    std::stringstream cmd;
+    cmd << "dd if=" << BIGFILENAME << " of=/dev/null bs=1024 2> /dev/null";
+    system(cmd.str().c_str());
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "-- wipe cache : " << BIGFILENAME << " read in " << elapsed_seconds.count() << " seconds\n";
@@ -110,8 +116,8 @@ void clock(std::string name, std::function<size_t(std::string)> func, std::strin
         double mb = nread / (1024 * 1024.0);
         auto end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        std::cout << fmt::format(": {:10d} bytes scanned in {:7.2f} seconds {:7.2f} MB/s\n",
-            nread, elapsed_seconds.count(), mb / elapsed_seconds.count());
+        std::cout << ": " << nread << " bytes scanned in " << elapsed_seconds.count() << " seconds "
+                  << " " << mb / elapsed_seconds.count() << " MB/s\n";
     }
 }
 
@@ -131,9 +137,9 @@ int main(int argc, char** argv)
     };
 
     std::array<call, 3> calls = {
-        call { "all", readAll },
-        call { "set", seekSet },
-        call { "cur", seekCur }
+        call{ "all", readAll },
+        call{ "set", seekSet },
+        call{ "cur", seekCur }
     };
 
     createBigFile(fileInGB);
