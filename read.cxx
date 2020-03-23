@@ -8,32 +8,32 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 class MyTimer {
-    public:
-        MyTimer(size_t fileSizeInBytes)
-            : fsize { fileSizeInBytes }
-        , start { std::chrono::high_resolution_clock::now() }
-        {
-        }
-        ~MyTimer()
-        {
-            auto end = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> elapsed_seconds = end - start;
-            double mb = fsize / (1024 * 1024.0);
-            std::cout << ": " << fsize << " bytes in "
-                << std::fixed << std::setw(6) << std::setprecision(1)
-                << elapsed_seconds.count() << " seconds "
-                << std::fixed << std::setw(5) << std::setprecision(0)
-                << mb / elapsed_seconds.count() << " MB/s\n";
-        }
+public:
+    MyTimer(size_t fileSizeInBytes)
+        : fsize{ fileSizeInBytes }
+        , start{ std::chrono::high_resolution_clock::now() }
+    {
+    }
+    ~MyTimer()
+    {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end - start;
+        double mb = fsize / (1024 * 1024.0);
+        std::cout << ": " << fsize << " bytes in "
+                  << std::fixed << std::setw(6) << std::setprecision(1)
+                  << elapsed_seconds.count() << " seconds "
+                  << std::fixed << std::setw(5) << std::setprecision(0)
+                  << mb / elapsed_seconds.count() << " MB/s\n";
+    }
 
-    private:
-        size_t fsize;
-        std::chrono::high_resolution_clock::time_point start;
+private:
+    size_t fsize;
+    std::chrono::high_resolution_clock::time_point start;
 };
 
 size_t readAll(std::string filename)
@@ -41,7 +41,7 @@ size_t readAll(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
+    size_t nbytes{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -60,8 +60,8 @@ size_t seekSet(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
-    uint64_t posInFile { 0 };
+    size_t nbytes{ 0 };
+    uint64_t posInFile{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -80,8 +80,8 @@ size_t seekCur(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes { 0 };
-    uint64_t posInFile { 0 };
+    size_t nbytes{ 0 };
+    uint64_t posInFile{ 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -108,20 +108,21 @@ void readBigFile()
 {
     // trying to wipe the SSD read cache
     std::stringstream cmd;
-    cmd << "dd if=" << BIGFILENAME << " of=/dev/null bs=1024 2> /dev/null";
+    cmd << "dd if=" << BIGFILENAME << " of=/dev/null bs=8192 2> /dev/null";
     system(cmd.str().c_str());
 }
 
 void wipeCache(size_t fileSizeInGB)
 {
     std::cout << "Reading " << BIGFILENAME << "..." << std::flush;
-    MyTimer t { fileSizeInGB * 1024 * 1024 * 1024 };
+    MyTimer t{ fileSizeInGB * 1024 * 1024 * 1024 };
     readBigFile();
 }
 
-size_t file_size(std::string filename) {
+size_t file_size(std::string filename)
+{
     struct stat s;
-    stat(filename.c_str(),&s);
+    stat(filename.c_str(), &s);
     return s.st_size;
 }
 
@@ -141,13 +142,13 @@ int main(int argc, char** argv)
     };
 
     std::array<call, 3> calls = {
-        call { "all", readAll },
-        call { "set", seekSet },
-        call { "cur", seekCur }
+        call{ "all", readAll },
+        call{ "set", seekSet },
+        call{ "cur", seekCur }
     };
 
     {
-        MyTimer creationTime { fileSizeInGB * 1024 * 1024 * 1024 };
+        MyTimer creationTime{ fileSizeInGB * 1024 * 1024 * 1024 };
         createBigFile(fileSizeInGB);
     }
 
@@ -159,7 +160,7 @@ int main(int argc, char** argv)
         const auto& c = calls[o];
         wipeCache(fileSizeInGB);
         std::cout << "Reading " << filename << "(method " << c.name << ")..." << std::flush;
-        MyTimer t { inputFileSize };
+        MyTimer t{ inputFileSize };
         c.func(filename);
     }
 
