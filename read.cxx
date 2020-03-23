@@ -3,35 +3,37 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
-#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 class MyTimer {
-public:
-    MyTimer(size_t fileSizeInBytes)
-        : fsize { fileSizeInBytes }
+    public:
+        MyTimer(size_t fileSizeInBytes)
+            : fsize { fileSizeInBytes }
         , start { std::chrono::high_resolution_clock::now() }
-    {
-    }
-    ~MyTimer()
-    {
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
-        double mb = fsize / (1024 * 1024.0);
-        std::cout << ": " << fsize << " bytes in "
-                  << std::fixed << std::setw(6) << std::setprecision(1)
-                  << elapsed_seconds.count() << " seconds "
-                  << std::fixed << std::setw(5) << std::setprecision(0)
-                  << mb / elapsed_seconds.count() << " MB/s\n";
-    }
+        {
+        }
+        ~MyTimer()
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed_seconds = end - start;
+            double mb = fsize / (1024 * 1024.0);
+            std::cout << ": " << fsize << " bytes in "
+                << std::fixed << std::setw(6) << std::setprecision(1)
+                << elapsed_seconds.count() << " seconds "
+                << std::fixed << std::setw(5) << std::setprecision(0)
+                << mb / elapsed_seconds.count() << " MB/s\n";
+        }
 
-private:
-    size_t fsize;
-    std::chrono::high_resolution_clock::time_point start;
+    private:
+        size_t fsize;
+        std::chrono::high_resolution_clock::time_point start;
 };
 
 size_t readAll(std::string filename)
@@ -117,6 +119,12 @@ void wipeCache(size_t fileSizeInGB)
     readBigFile();
 }
 
+size_t file_size(std::string filename) {
+    struct stat s;
+    stat(filename.c_str(),&s);
+    return s.st_size;
+}
+
 int main(int argc, char** argv)
 {
     std::string filename = argv[1];
@@ -145,7 +153,7 @@ int main(int argc, char** argv)
 
     std::array<int, 8> order = { 0, 1, 2, 0, 2, 1, 2, 0 };
 
-    auto inputFileSize = std::filesystem::file_size(filename.c_str());
+    auto inputFileSize = file_size(filename);
 
     for (auto o : order) {
         const auto& c = calls[o];
