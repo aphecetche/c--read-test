@@ -15,8 +15,8 @@
 class MyTimer {
 public:
     MyTimer(size_t fileSizeInBytes)
-        : fsize{ fileSizeInBytes }
-        , start{ std::chrono::high_resolution_clock::now() }
+        : fsize { fileSizeInBytes }
+        , start { std::chrono::high_resolution_clock::now() }
     {
     }
     ~MyTimer()
@@ -41,7 +41,7 @@ size_t readAll(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes{ 0 };
+    size_t nbytes { 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -60,8 +60,8 @@ size_t seekSet(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes{ 0 };
-    uint64_t posInFile{ 0 };
+    size_t nbytes { 0 };
+    uint64_t posInFile { 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -80,8 +80,8 @@ size_t seekCur(std::string filename)
     FILE* f = fopen(filename.c_str(), "r");
     o2::header::RAWDataHeaderV4 rdh;
     std::array<std::byte, 8192> dummy;
-    size_t nbytes{ 0 };
-    uint64_t posInFile{ 0 };
+    size_t nbytes { 0 };
+    uint64_t posInFile { 0 };
 
     while (fread(&rdh, 1, sizeof(rdh), f) == sizeof(rdh)) {
         size_t sizeToRead = rdh.offsetToNext - sizeof(rdh);
@@ -104,18 +104,19 @@ void createBigFile(const size_t fileSizeInGB = 20)
     system(cmd.str().c_str());
 }
 
-void readBigFile()
+void readBigFile(const size_t blockSize = 8192)
 {
     // trying to wipe the SSD read cache
+    std::cout << "Reading bigfile with blockSize=" << blockSize << "\n";
     std::stringstream cmd;
-    cmd << "dd if=" << BIGFILENAME << " of=/dev/null bs=8192 2> /dev/null";
+    cmd << "dd if=" << BIGFILENAME << " of=/dev/null bs=" << blockSize << " 2> /dev/null";
     system(cmd.str().c_str());
 }
 
 void wipeCache(size_t fileSizeInGB)
 {
     std::cout << "Reading " << BIGFILENAME << "..." << std::flush;
-    MyTimer t{ fileSizeInGB * 1024 * 1024 * 1024 };
+    MyTimer t { fileSizeInGB * 1024 * 1024 * 1024 };
     readBigFile();
 }
 
@@ -141,14 +142,16 @@ int main(int argc, char** argv)
         std::function<size_t(std::string)> func;
     };
 
+    constexpr int Giga2Bytes = 1024 * 1024 * 1024;
+
     std::array<call, 3> calls = {
-        call{ "all", readAll },
-        call{ "set", seekSet },
-        call{ "cur", seekCur }
+        call { "all", readAll },
+        call { "set", seekSet },
+        call { "cur", seekCur }
     };
 
     {
-        MyTimer creationTime{ fileSizeInGB * 1024 * 1024 * 1024 };
+        MyTimer creationTime { fileSizeInGB * Giga2Bytes };
         createBigFile(fileSizeInGB);
     }
 
@@ -156,11 +159,18 @@ int main(int argc, char** argv)
 
     auto inputFileSize = file_size(filename);
 
+    std::array<int, 6> blockSizes = { 512, 1024, 2048, 4096, 8192, 16384 };
+
+    for (auto bs : blockSizes) {
+        MyTimer t { fileSizeInGB * Giga2Bytes };
+        readBigFile(bs);
+    }
+
     for (auto o : order) {
         const auto& c = calls[o];
         wipeCache(fileSizeInGB);
         std::cout << "Reading " << filename << "(method " << c.name << ")..." << std::flush;
-        MyTimer t{ inputFileSize };
+        MyTimer t { inputFileSize };
         c.func(filename);
     }
 
